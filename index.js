@@ -1,14 +1,22 @@
 const express = require('express');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
+// WhatsApp Client Setup with Memory Fixes
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
     }
 });
 
@@ -16,8 +24,7 @@ let currentQR = '';
 
 client.on('qr', (qr) => {
     currentQR = qr;
-    qrcode.generate(qr, { small: true });
-    console.log('Web theke clear QR scan korte jao tomar app er /qr link e!');
+    console.log('Notun QR code toiri hoyeche! Web e giye scan koro.');
 });
 
 client.on('ready', () => {
@@ -25,16 +32,18 @@ client.on('ready', () => {
     console.log('WhatsApp Bot Ready hoye geche!');
 });
 
-client.on('message', async msg => {
+// "message_create" use kora holo jate nijer kora message o bot porte pare
+client.on('message_create', async msg => {
     if (msg.body === '!id') {
-        console.log('Ei chat er ID holo:', msg.from);
-        msg.reply(`Ei chat er ID: ${msg.from}`);
+        const chat = await msg.getChat();
+        console.log('Ei chat er ID holo:', chat.id._serialized);
+        msg.reply(`Ei chat er ID: ${chat.id._serialized}`);
     }
 });
 
 client.initialize();
 
-// QR code dekhar web link
+// QR Code Web Page Route
 app.get('/qr', (req, res) => {
     if (currentQR) {
         res.send(`
@@ -42,7 +51,7 @@ app.get('/qr', (req, res) => {
                 <h2>WhatsApp Bot Log In</h2>
                 <p>Nicher QR Code ta WhatsApp theke scan koro:</p>
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentQR)}" alt="WhatsApp QR" />
-                <p>Nijetheke refresh hobe na, scan na hole page ta ekbar reload koro.</p>
+                <p>Scan na hole page ta ekbar reload koro.</p>
             </div>
         `);
     } else {
@@ -50,7 +59,7 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// API jeta InfinityFree theke call kora hobe
+// API Endpoint for Sending Notices
 app.get('/send-notice', async (req, res) => {
     const { message, secret, media_url } = req.query;
 
@@ -63,10 +72,8 @@ app.get('/send-notice', async (req, res) => {
     }
 
     try {
-        // Ekhane tomar asol group ID gulo koma (,) diye likhte hobe
         const groupIds = [
-            'YOUR_GROUP_ID_1@g.us',
-            'YOUR_GROUP_ID_2@g.us'
+            'YOUR_GROUP_ID@g.us' // Pore ekhane asol group ID bosate hobe
         ]; 
         
         let media = null;
@@ -84,7 +91,7 @@ app.get('/send-notice', async (req, res) => {
             console.log(`Message sent to group: ${id}`);
         }
         
-        res.json({ success: true, info: 'Sob group e message pathano hoyeche' });
+        res.json({ success: true, info: 'Message pathano hoyeche' });
     } catch (error) {
         console.error('Error sending message:', error);
         res.status(500).json({ error: 'Failed to send message' });
