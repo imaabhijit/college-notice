@@ -27,6 +27,20 @@ client.on('qr', (qr) => {
     console.log('Notun QR code toiri hoyeche! Web e giye scan koro.');
 });
 
+// -- NOTUN LOGS GULO EKHANE ADD KORA HOLO --
+client.on('authenticated', () => {
+    console.log('QR Scan successful! Ebar chat history sync hocche (Ete ektu somoy lagte pare, wait koro)...');
+});
+
+client.on('auth_failure', msg => {
+    console.error('Authentication fail hoyeche:', msg);
+});
+
+client.on('disconnected', (reason) => {
+    console.log('Bot disconnect hoye geche!', reason);
+});
+// -----------------------------------------
+
 client.on('ready', () => {
     currentQR = '';
     console.log('WhatsApp Bot Ready hoye geche!');
