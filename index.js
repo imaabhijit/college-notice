@@ -1,119 +1,125 @@
 const express = require('express');
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const axios = require('axios');
+const pino = require('pino');
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// WhatsApp Client Setup with Extreme Memory Fixes
-const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process', // RAM save korar jonno main command
-            '--disable-gpu',
-            '--js-flags="--max-old-space-size=256"' // Node.js er memory limit kora holo
-        ]
-    }
-});
-
+let sock;
 let currentQR = '';
 
-client.on('qr', (qr) => {
-    currentQR = qr;
-    console.log('Notun QR code toiri hoyeche! Web e giye scan koro.');
-});
+async function connectToWhatsApp() {
+    // Login data save korar jaiga
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info_baileys');
+    
+    sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false,
+        logger: pino({ level: 'silent' }) // Faltu log asbe na
+    });
 
-// Logs for tracking login progress
-client.on('authenticated', () => {
-    console.log('QR Scan successful! Ebar chat history sync hocche (Ete ektu somoy lagte pare, wait koro)...');
-});
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            currentQR = qr;
+            console.log('Notun QR code toiri hoyeche! Web theke scan koro.');
+        }
+        
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                connectToWhatsApp();
+            }
+        } else if (connection === 'open') {
+            currentQR = '';
+            console.log('🎉 WhatsApp Bot Ready hoye geche! Ebar ar crash korbe na!');
+        }
+    });
 
-client.on('auth_failure', msg => {
-    console.error('Authentication fail hoyeche:', msg);
-});
+    sock.ev.on('creds.update', saveCreds);
 
-client.on('disconnected', (reason) => {
-    console.log('Bot disconnect hoye geche!', reason);
-});
+    // Group theke !id ber korar jonno
+    sock.ev.on('messages.upsert', async m => {
+        const msg = m.messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+        
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
+        
+        if (text === '!id') {
+            const chatId = msg.key.remoteJid;
+            console.log('Ei chat er ID holo:', chatId);
+            await sock.sendMessage(chatId, { text: `Ei chat er ID: ${chatId}` });
+        }
+    });
+}
 
-client.on('ready', () => {
-    currentQR = '';
-    console.log('WhatsApp Bot Ready hoye geche! Ebar 100% success!');
-});
+connectToWhatsApp();
 
-// "message_create" use kora holo jate nijer kora message o bot porte pare
-client.on('message_create', async msg => {
-    if (msg.body === '!id') {
-        const chat = await msg.getChat();
-        console.log('Ei chat er ID holo:', chat.id._serialized);
-        msg.reply(`Ei chat er ID: ${chat.id._serialized}`);
-    }
-});
-
-client.initialize();
-
-// QR Code Web Page Route
+// QR dekhar web page
 app.get('/qr', (req, res) => {
     if (currentQR) {
         res.send(`
             <div style="text-align: center; margin-top: 50px; font-family: Arial, sans-serif;">
-                <h2>WhatsApp Bot Log In</h2>
-                <p>Nicher QR Code ta WhatsApp theke scan koro:</p>
+                <h2>WhatsApp Bot Log In (Lite Version)</h2>
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(currentQR)}" alt="WhatsApp QR" />
                 <p>Scan na hole page ta ekbar reload koro.</p>
             </div>
         `);
     } else {
-        res.send('<h2 style="text-align:center; margin-top:50px;">QR Code ekhono toiri hoyni ba Bot already Log In hoye aache. Render Logs check koro.</h2>');
+        res.send('<h2 style="text-align:center; margin-top:50px;">QR Code nei ba Bot Login aache. Render Logs check koro.</h2>');
     }
 });
 
-// API Endpoint for Sending Notices
+// API for InfinityFree
 app.get('/send-notice', async (req, res) => {
     const { message, secret, media_url } = req.query;
 
-    if (secret !== 'rampurhat123') {
-        return res.status(403).json({ error: 'Unauthorized Access' });
-    }
-
-    if (!message) {
-        return res.status(400).json({ error: 'Message missing' });
-    }
+    if (secret !== 'rampurhat123') return res.status(403).json({ error: 'Unauthorized' });
+    if (!message) return res.status(400).json({ error: 'Message missing' });
 
     try {
         const groupIds = [
-            'YOUR_GROUP_ID@g.us' // Pore ekhane asol group ID bosate hobe
+            'YOUR_GROUP_ID@g.us' // Asol group ID pore bosabe
         ]; 
         
-        let media = null;
+        let buffer = null;
+        let mimeType = '';
+        let fileName = '';
+
         if (media_url) {
-            console.log(`Downloading media from: ${media_url}`);
-            media = await MessageMedia.fromUrl(media_url, { unsafeMime: true });
+            console.log(`Downloading media: ${media_url}`);
+            const response = await axios.get(media_url, { responseType: 'arraybuffer' });
+            buffer = Buffer.from(response.data, 'binary');
+            
+            if(media_url.toLowerCase().endsWith('.pdf')) {
+                mimeType = 'application/pdf';
+                fileName = 'Notice.pdf';
+            } else {
+                mimeType = 'image/jpeg';
+            }
         }
 
         for (let id of groupIds) {
-            if (media) {
-                await client.sendMessage(id, media, { caption: message }); 
+            if (buffer) {
+                if(mimeType === 'application/pdf') {
+                    await sock.sendMessage(id, { document: buffer, mimetype: mimeType, fileName: fileName, caption: message });
+                } else {
+                    await sock.sendMessage(id, { image: buffer, caption: message });
+                }
             } else {
-                await client.sendMessage(id, message);
+                await sock.sendMessage(id, { text: message });
             }
-            console.log(`Message sent to group: ${id}`);
         }
         
-        res.json({ success: true, info: 'Message pathano hoyeche' });
+        res.json({ success: true });
     } catch (error) {
-        console.error('Error sending message:', error);
-        res.status(500).json({ error: 'Failed to send message' });
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Failed to send' });
     }
 });
 
 app.listen(port, () => {
-    console.log(`Express API server running on port ${port}`);
+    console.log(`API running on port ${port}`);
 });
