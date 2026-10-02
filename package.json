@@ -1,14 +1,16 @@
 {
   "name": "college-notice-bot",
   "version": "1.0.0",
-  "description": "WhatsApp API for Notice Bot",
+  "description": "Lightweight WhatsApp Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
+    "@whiskeysockets/baileys": "^6.6.0",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.23.0"
+    "axios": "^1.6.2",
+    "pino": "^8.16.1"
   }
 }
