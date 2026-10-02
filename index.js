@@ -87,7 +87,10 @@ async function connectToWhatsApp() {
     sock = makeWASocket({
         auth: state,
         printQRInTerminal: false,
-        logger: pino({ level: 'silent' }) 
+        logger: pino({ level: 'silent' }),
+        keepAliveIntervalMs: 15000, // Protyek 15 sekond e WhatsApp ke ping korbe jate line na kate
+        markOnlineOnConnect: true,  // Sarakhon "Online" dekhabe
+        syncFullHistory: false      // Taratari connect howar jonno
     });
 
     sock.ev.on('connection.update', (update) => {
@@ -182,3 +185,4 @@ app.get('/send-notice', async (req, res) => {
 app.listen(port, () => {
     console.log(`API running on port ${port}`);
 });
+          
