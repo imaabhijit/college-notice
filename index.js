@@ -125,7 +125,7 @@ async function connectToWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
         if (text === '!id') {
             const chatId = msg.key.remoteJid;
-            await sock.sendMessage(chatId, { text: `Ei chat er ID: ${chatId}` });
+            await sock.sendMessage(chatId, { text: `PVT ID is: ${chatId}` });
         }
     });
 }
