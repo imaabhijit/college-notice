@@ -79,7 +79,8 @@ app.get('/send-notice', async (req, res) => {
     try {
         const groupIds = [
             '120363410748058447@g.us',
-            '253536919093428@lid'// ⚠️ EKHANE TOMAR ASOL GROUP ID TA ABAR BOSATE BHULBE NA!
+            '253536919093428@lid',
+            '120363411869910488@g.us'// ⚠️ EKHANE TOMAR ASOL GROUP ID TA ABAR BOSATE BHULBE NA!
         ]; 
         
         let buffer = null;
