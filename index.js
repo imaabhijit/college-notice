@@ -4,10 +4,11 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const app = express();
 const port = process.env.PORT || 10000;
 
-// WhatsApp Client Setup with Memory Fixes
+// WhatsApp Client Setup with Extreme Memory Fixes
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
+        headless: true,
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
@@ -15,7 +16,9 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu'
+            '--single-process', // RAM save korar jonno main command
+            '--disable-gpu',
+            '--js-flags="--max-old-space-size=256"' // Node.js er memory limit kora holo
         ]
     }
 });
@@ -27,7 +30,7 @@ client.on('qr', (qr) => {
     console.log('Notun QR code toiri hoyeche! Web e giye scan koro.');
 });
 
-// -- NOTUN LOGS GULO EKHANE ADD KORA HOLO --
+// Logs for tracking login progress
 client.on('authenticated', () => {
     console.log('QR Scan successful! Ebar chat history sync hocche (Ete ektu somoy lagte pare, wait koro)...');
 });
@@ -39,11 +42,10 @@ client.on('auth_failure', msg => {
 client.on('disconnected', (reason) => {
     console.log('Bot disconnect hoye geche!', reason);
 });
-// -----------------------------------------
 
 client.on('ready', () => {
     currentQR = '';
-    console.log('WhatsApp Bot Ready hoye geche!');
+    console.log('WhatsApp Bot Ready hoye geche! Ebar 100% success!');
 });
 
 // "message_create" use kora holo jate nijer kora message o bot porte pare
