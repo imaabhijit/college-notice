@@ -88,9 +88,9 @@ async function connectToWhatsApp() {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }),
-        keepAliveIntervalMs: 15000, // Protyek 15 sekond e WhatsApp ke ping korbe jate line na kate
-        markOnlineOnConnect: true,  // Sarakhon "Online" dekhabe
-        syncFullHistory: false      // Taratari connect howar jonno
+        browser: ['Ubuntu', 'Chrome', '110.0.0'], // Meta ke boka bananor jonno asol browser er nam
+        keepAliveIntervalMs: 60000, // 15 sekond theke bariye 60 sekond kora holo
+        syncFullHistory: false
     });
 
     sock.ev.on('connection.update', (update) => {
@@ -185,4 +185,4 @@ app.get('/send-notice', async (req, res) => {
 app.listen(port, () => {
     console.log(`API running on port ${port}`);
 });
-          
+      
