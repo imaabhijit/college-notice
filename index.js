@@ -81,7 +81,7 @@ app.get('/send-notice', async (req, res) => {
 
     try {
         const groupIds = [
-            'YOUR_GROUP_ID@g.us' // Asol group ID pore bosabe
+            '120363410748058447@g.us' // Asol group ID pore bosabe
         ]; 
         
         let buffer = null;
